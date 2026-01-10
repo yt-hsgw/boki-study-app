@@ -4,6 +4,7 @@ import { ProblemInput } from './components/ProblemInput';
 import { ProblemList } from './components/ProblemList';
 import { ReviewModalGiven } from './components/ReviewModal/ReviewModalGiven';
 import { ReviewModalFree } from './components/ReviewModal/ReviewModalFree';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { useStorage } from './hooks/useStorage';
 import { DEFAULT_DRAFT, STORAGE_KEYS } from './data/constants';
 import './App.css';
@@ -13,16 +14,15 @@ function App() {
   const [currentTab, setCurrentTab] = useState('input');
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [draftData, setDraftData] = useStorage(STORAGE_KEYS.DRAFT, DEFAULT_DRAFT);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const handleAddProblem = (problem) => {
     setProblems([...problems, problem]);
     setCurrentTab('list');
   };
 
-  const [deleteTargetId, setDeleteTargetId] = useState(null);
-
   const handleDeleteRequest = (id) => {
-    setDeleteTargetId(id);  // モーダルを表示
+    setDeleteTargetId(id);
   };
 
   const handleDeleteConfirm = () => {
@@ -36,15 +36,6 @@ function App() {
     setDeleteTargetId(null);
   };
 
-  // JSX内
-  {deleteTargetId && (
-    <ConfirmDialog
-      message="この問題を削除してもよろしいですか？"
-      onConfirm={handleDeleteConfirm}
-      onCancel={handleDeleteCancel}
-    />
-  )}
-  
   const handleViewProblem = (problem) => {
     setSelectedProblem(problem);
   };
@@ -100,7 +91,7 @@ function App() {
         {currentTab === 'list' && (
           <div>
             <h2 className="text-2xl font-bold mb-4">登録済み問題</h2>
-            <ProblemList problems={problems} onView={handleViewProblem} onDelete={handleDeleteProblem} />
+            <ProblemList problems={problems} onView={handleViewProblem} onDelete={handleDeleteRequest} />
           </div>
         )}
       </div>
@@ -112,6 +103,15 @@ function App() {
         ) : (
           <ReviewModalFree problem={selectedProblem} onClose={() => setSelectedProblem(null)} />
         )
+      )}
+
+      {/* 削除確認ダイアログ */}
+      {deleteTargetId && (
+        <ConfirmDialog
+          message="この問題を削除してもよろしいですか？"
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
       )}
     </div>
   );
