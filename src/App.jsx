@@ -19,12 +19,32 @@ function App() {
     setCurrentTab('list');
   };
 
-  const handleDeleteProblem = (id) => {
-    if (confirm('この問題を削除してもよろしいですか？')) {
-      setProblems(problems.filter(p => p.id !== id));
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+
+  const handleDeleteRequest = (id) => {
+    setDeleteTargetId(id);  // モーダルを表示
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteTargetId) {
+      setProblems(problems.filter(p => p.id !== deleteTargetId));
+      setDeleteTargetId(null);
     }
   };
 
+  const handleDeleteCancel = () => {
+    setDeleteTargetId(null);
+  };
+
+  // JSX内
+  {deleteTargetId && (
+    <ConfirmDialog
+      message="この問題を削除してもよろしいですか？"
+      onConfirm={handleDeleteConfirm}
+      onCancel={handleDeleteCancel}
+    />
+  )}
+  
   const handleViewProblem = (problem) => {
     setSelectedProblem(problem);
   };

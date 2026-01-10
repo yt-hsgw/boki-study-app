@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { ErrorDialog } from './ErrorDialog';
 import { getAllAccounts } from '../data/accounts';
+import { Save } from 'lucide-react';
 
 export function ProblemInput({ onSave, draftData, onDraftChange }) {
   const [errorMessage, setErrorMessage] = useState('');
@@ -209,7 +210,7 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
           onClick={validateAndSave}
           className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2"
         >
-          <Plus size={20} /> 回答
+          <Plus size={20} /> 回答を保存
         </button>
       </div>
 
