@@ -8,6 +8,8 @@
 - **問題一覧**: 登録した問題の閲覧・削除
 - **答え合わせ**: 正解との比較・確認
 - **下書き保存**: 入力中のデータを自動保存
+- **用語集**: 150以上の簿記用語を検索・閲覧（カテゴリ別フィルター付き）
+- **簡易電卓**: 画面右下のフローティングボタンから四則演算が可能
 
 ## 技術スタック
 
@@ -35,10 +37,14 @@ npm run preview
 ## ディレクトリ構成
 
 ```
+public/
+└── glossary.csv               # 用語集データ（CSV形式）
 src/
 ├── components/
+│   ├── CalculatorWidget.jsx   # 電卓ウィジェット
 │   ├── ConfirmDialog.jsx      # 確認ダイアログ
 │   ├── ErrorDialog.jsx        # エラーダイアログ
+│   ├── GlossaryModal.jsx      # 用語集モーダル
 │   ├── ProblemInput.jsx       # 問題入力フォーム
 │   ├── ProblemList.jsx        # 問題一覧
 │   └── ReviewModal/
@@ -46,8 +52,7 @@ src/
 │       └── ReviewModalGiven.jsx  # 選択肢の答え合わせ
 ├── data/
 │   ├── accounts.js            # 勘定科目データ
-│   ├── constants.js           # 定数定義
-│   └── glossary.js            # 用語集（拡張用）
+│   └── constants.js           # 定数定義
 ├── hooks/
 │   └── useStorage.js          # localStorage フック
 ├── App.jsx                    # メインコンポーネント
@@ -55,6 +60,19 @@ src/
 ├── index.css                  # Tailwind インポート
 └── main.jsx                   # エントリーポイント
 ```
+
+## 用語集のカスタマイズ
+
+用語を追加・編集する場合は `public/glossary.csv` を編集してください。
+
+```csv
+term,reading,category,definition
+用語名,よみがな,カテゴリ,説明文
+```
+
+### カテゴリ一覧
+
+基本、商品、現金、預金、手形、債権、債務、固定資産、決算、帳簿、税金、給与、純資産、電子記録、仕訳、計算、その他
 
 ## 勘定科目
 
