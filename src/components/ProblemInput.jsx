@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import { ErrorDialog } from './ErrorDialog';
-import { getAllAccounts } from '../data/accounts';
+import { AccountCombobox } from './AccountCombobox';
 import { DEFAULT_DRAFT } from '../data/constants';
 
 export function ProblemInput({ onSave, draftData, onDraftChange }) {
   const [errorMessage, setErrorMessage] = useState('');
-  const accounts = getAllAccounts();
 
   // 下書きデータの互換性チェック（旧バージョンから新バージョンへの移行）
   const normalizedDraft = {
@@ -204,14 +203,12 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
                   <div key={index} className="flex gap-2 mb-2 items-end">
                     <div className="flex-1">
                       {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">勘定科目</label>}
-                      <select
+                      <AccountCombobox
                         value={debit.account}
-                        onChange={(e) => handleDebitChange(index, 'account', e.target.value)}
-                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      >
-                        <option value="">選択</option>
-                        {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                      </select>
+                        onChange={(value) => handleDebitChange(index, 'account', value)}
+                        placeholder="勘定科目を入力"
+                        color="red"
+                      />
                     </div>
                     <div className="w-28">
                       {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">金額</label>}
@@ -257,14 +254,12 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
                   <div key={index} className="flex gap-2 mb-2 items-end">
                     <div className="flex-1">
                       {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">勘定科目</label>}
-                      <select
+                      <AccountCombobox
                         value={credit.account}
-                        onChange={(e) => handleCreditChange(index, 'account', e.target.value)}
-                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">選択</option>
-                        {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                      </select>
+                        onChange={(value) => handleCreditChange(index, 'account', value)}
+                        placeholder="勘定科目を入力"
+                        color="blue"
+                      />
                     </div>
                     <div className="w-28">
                       {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">金額</label>}
