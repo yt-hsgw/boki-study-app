@@ -129,7 +129,7 @@ export function CalculatorWidget() {
       {/* フローティングボタン */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all z-40 ${
+        className={`fixed bottom-6 left-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all z-40 ${
           isOpen ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'
         }`}
         title={isOpen ? '電卓を閉じる' : '電卓を開く'}
@@ -139,7 +139,7 @@ export function CalculatorWidget() {
 
       {/* 電卓本体 */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 bg-white rounded-xl shadow-2xl p-4 z-40 border">
+        <div className="fixed bottom-24 left-6 bg-white rounded-xl shadow-2xl p-4 z-40 border">
           <div className="mb-3">
             <div className="text-xs text-gray-500 h-4 text-right">
               {previousValue !== null && `${previousValue} ${operator || ''}`}

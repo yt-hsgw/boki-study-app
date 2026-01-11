@@ -1,76 +1,120 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Save, Plus, Trash2 } from 'lucide-react';
 import { ErrorDialog } from './ErrorDialog';
 import { getAllAccounts } from '../data/accounts';
-import { Save } from 'lucide-react';
+import { DEFAULT_DRAFT } from '../data/constants';
 
 export function ProblemInput({ onSave, draftData, onDraftChange }) {
   const [errorMessage, setErrorMessage] = useState('');
   const accounts = getAllAccounts();
 
+  // 下書きデータの互換性チェック（旧バージョンから新バージョンへの移行）
+  const normalizedDraft = {
+    ...DEFAULT_DRAFT,
+    ...draftData,
+    debits: draftData.debits || [{ account: draftData.debitAccount || '', amount: draftData.debitAmount || '' }],
+    credits: draftData.credits || [{ account: draftData.creditAccount || '', amount: draftData.creditAmount || '' }]
+  };
+
   const handleProblemTypeChange = (newType) => {
-    onDraftChange({ ...draftData, problemType: newType });
+    onDraftChange({ ...normalizedDraft, problemType: newType });
   };
 
   const handleProblemTextChange = (text) => {
-    onDraftChange({ ...draftData, problemText: text });
+    onDraftChange({ ...normalizedDraft, problemText: text });
   };
 
-  const handleDebitAccountChange = (account) => {
-    onDraftChange({ ...draftData, debitAccount: account });
+  // 借方の操作
+  const handleDebitChange = (index, field, value) => {
+    const newDebits = [...normalizedDraft.debits];
+    newDebits[index] = { ...newDebits[index], [field]: value };
+    onDraftChange({ ...normalizedDraft, debits: newDebits });
   };
 
-  const handleDebitAmountChange = (amount) => {
-    onDraftChange({ ...draftData, debitAmount: amount });
+  const addDebitRow = () => {
+    onDraftChange({ 
+      ...normalizedDraft, 
+      debits: [...normalizedDraft.debits, { account: '', amount: '' }] 
+    });
   };
 
-  const handleCreditAccountChange = (account) => {
-    onDraftChange({ ...draftData, creditAccount: account });
+  const removeDebitRow = (index) => {
+    if (normalizedDraft.debits.length > 1) {
+      const newDebits = normalizedDraft.debits.filter((_, i) => i !== index);
+      onDraftChange({ ...normalizedDraft, debits: newDebits });
+    }
   };
 
-  const handleCreditAmountChange = (amount) => {
-    onDraftChange({ ...draftData, creditAmount: amount });
+  // 貸方の操作
+  const handleCreditChange = (index, field, value) => {
+    const newCredits = [...normalizedDraft.credits];
+    newCredits[index] = { ...newCredits[index], [field]: value };
+    onDraftChange({ ...normalizedDraft, credits: newCredits });
+  };
+
+  const addCreditRow = () => {
+    onDraftChange({ 
+      ...normalizedDraft, 
+      credits: [...normalizedDraft.credits, { account: '', amount: '' }] 
+    });
+  };
+
+  const removeCreditRow = (index) => {
+    if (normalizedDraft.credits.length > 1) {
+      const newCredits = normalizedDraft.credits.filter((_, i) => i !== index);
+      onDraftChange({ ...normalizedDraft, credits: newCredits });
+    }
   };
 
   const handleFreeAnswerChange = (answer) => {
-    onDraftChange({ ...draftData, freeAnswer: answer });
+    onDraftChange({ ...normalizedDraft, freeAnswer: answer });
   };
 
+  // 合計計算
+  const debitTotal = normalizedDraft.debits.reduce((sum, d) => sum + (parseInt(d.amount) || 0), 0);
+  const creditTotal = normalizedDraft.credits.reduce((sum, c) => sum + (parseInt(c.amount) || 0), 0);
+  const isBalanced = debitTotal === creditTotal && debitTotal > 0;
+
   const validateAndSave = () => {
-    if (!draftData.problemText.trim()) {
+    if (!normalizedDraft.problemText.trim()) {
       setErrorMessage('問題文を入力してください');
       return;
     }
 
-    if (draftData.problemType === 'given') {
-      if (!draftData.debitAccount || !draftData.creditAccount) {
-        setErrorMessage('借方と貸方の勘定科目を選択してください');
+    if (normalizedDraft.problemType === 'given') {
+      // 借方チェック
+      const validDebits = normalizedDraft.debits.filter(d => d.account && d.amount);
+      if (validDebits.length === 0) {
+        setErrorMessage('借方の勘定科目と金額を入力してください');
         return;
       }
 
-      if (!draftData.debitAmount || !draftData.creditAmount) {
-        setErrorMessage('借方と貸方の金額を入力してください');
+      // 貸方チェック
+      const validCredits = normalizedDraft.credits.filter(c => c.account && c.amount);
+      if (validCredits.length === 0) {
+        setErrorMessage('貸方の勘定科目と金額を入力してください');
         return;
       }
 
-      if (parseInt(draftData.debitAmount) !== parseInt(draftData.creditAmount)) {
-        setErrorMessage('借方と貸方の金額が一致していません');
+      // 貸借一致チェック
+      if (!isBalanced) {
+        setErrorMessage(`借方合計（${debitTotal.toLocaleString()}円）と貸方合計（${creditTotal.toLocaleString()}円）が一致していません`);
         return;
       }
 
       const problem = {
         id: Date.now(),
         type: 'given',
-        text: draftData.problemText,
-        debit: { account: draftData.debitAccount, amount: parseInt(draftData.debitAmount) },
-        credit: { account: draftData.creditAccount, amount: parseInt(draftData.creditAmount) },
+        text: normalizedDraft.problemText,
+        debits: validDebits.map(d => ({ account: d.account, amount: parseInt(d.amount) })),
+        credits: validCredits.map(c => ({ account: c.account, amount: parseInt(c.amount) })),
         createdAt: new Date().toISOString()
       };
 
       onSave(problem);
       resetDraft();
     } else {
-      if (!draftData.freeAnswer.trim()) {
+      if (!normalizedDraft.freeAnswer.trim()) {
         setErrorMessage('回答を入力してください');
         return;
       }
@@ -78,8 +122,8 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
       const problem = {
         id: Date.now(),
         type: 'free',
-        text: draftData.problemText,
-        answer: draftData.freeAnswer,
+        text: normalizedDraft.problemText,
+        answer: normalizedDraft.freeAnswer,
         createdAt: new Date().toISOString()
       };
 
@@ -92,10 +136,8 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
     onDraftChange({
       problemType: 'given',
       problemText: '',
-      debitAccount: '',
-      debitAmount: '10000',
-      creditAccount: '',
-      creditAmount: '10000',
+      debits: [{ account: '', amount: '' }],
+      credits: [{ account: '', amount: '' }],
       freeAnswer: ''
     });
     setErrorMessage('');
@@ -113,7 +155,7 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
               <input
                 type="radio"
                 value="given"
-                checked={draftData.problemType === 'given'}
+                checked={normalizedDraft.problemType === 'given'}
                 onChange={(e) => handleProblemTypeChange(e.target.value)}
                 className="mr-2 w-4 h-4"
               />
@@ -123,7 +165,7 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
               <input
                 type="radio"
                 value="free"
-                checked={draftData.problemType === 'free'}
+                checked={normalizedDraft.problemType === 'free'}
                 onChange={(e) => handleProblemTypeChange(e.target.value)}
                 className="mr-2 w-4 h-4"
               />
@@ -135,70 +177,144 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
         <div className="mb-6">
           <label className="block text-sm font-semibold mb-2">問題文</label>
           <textarea
-            value={draftData.problemText}
+            value={normalizedDraft.problemText}
             onChange={(e) => handleProblemTextChange(e.target.value)}
             className="w-full border rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="例）諏訪商店が山口商店から現金１万円を借りて..."
           />
         </div>
 
-        {draftData.problemType === 'given' ? (
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="border-l-4 border-red-500 pl-4">
-              <h3 className="font-semibold text-red-700 mb-3">借方（左側）</h3>
-              <div className="mb-3">
-                <label className="block text-sm font-semibold mb-1">勘定科目</label>
-                <select
-                  value={draftData.debitAccount}
-                  onChange={(e) => handleDebitAccountChange(e.target.value)}
-                  className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">選択してください</option>
-                  {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                </select>
+        {normalizedDraft.problemType === 'given' ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              {/* 借方 */}
+              <div className="border-l-4 border-red-500 pl-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-red-700">借方（左側）</h3>
+                  <button
+                    type="button"
+                    onClick={addDebitRow}
+                    className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
+                  >
+                    <Plus size={16} /> 行を追加
+                  </button>
+                </div>
+                
+                {normalizedDraft.debits.map((debit, index) => (
+                  <div key={index} className="flex gap-2 mb-2 items-end">
+                    <div className="flex-1">
+                      {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">勘定科目</label>}
+                      <select
+                        value={debit.account}
+                        onChange={(e) => handleDebitChange(index, 'account', e.target.value)}
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <option value="">選択</option>
+                        {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                      </select>
+                    </div>
+                    <div className="w-28">
+                      {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">金額</label>}
+                      <input
+                        type="number"
+                        value={debit.amount}
+                        onChange={(e) => handleDebitChange(index, 'amount', e.target.value)}
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder="金額"
+                      />
+                    </div>
+                    {normalizedDraft.debits.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeDebitRow(index)}
+                        className="p-2 text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                
+                <div className="text-right text-sm font-semibold text-red-700 mt-2 border-t pt-2">
+                  合計: {debitTotal.toLocaleString()} 円
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">金額</label>
-                <input
-                  type="number"
-                  value={draftData.debitAmount}
-                  onChange={(e) => handleDebitAmountChange(e.target.value)}
-                  className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="10000"
-                />
+
+              {/* 貸方 */}
+              <div className="border-l-4 border-blue-500 pl-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-blue-700">貸方（右側）</h3>
+                  <button
+                    type="button"
+                    onClick={addCreditRow}
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
+                  >
+                    <Plus size={16} /> 行を追加
+                  </button>
+                </div>
+                
+                {normalizedDraft.credits.map((credit, index) => (
+                  <div key={index} className="flex gap-2 mb-2 items-end">
+                    <div className="flex-1">
+                      {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">勘定科目</label>}
+                      <select
+                        value={credit.account}
+                        onChange={(e) => handleCreditChange(index, 'account', e.target.value)}
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">選択</option>
+                        {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                      </select>
+                    </div>
+                    <div className="w-28">
+                      {index === 0 && <label className="block text-xs font-medium mb-1 text-gray-600">金額</label>}
+                      <input
+                        type="number"
+                        value={credit.amount}
+                        onChange={(e) => handleCreditChange(index, 'amount', e.target.value)}
+                        className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="金額"
+                      />
+                    </div>
+                    {normalizedDraft.credits.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeCreditRow(index)}
+                        className="p-2 text-gray-400 hover:text-blue-600"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                
+                <div className="text-right text-sm font-semibold text-blue-700 mt-2 border-t pt-2">
+                  合計: {creditTotal.toLocaleString()} 円
+                </div>
               </div>
             </div>
 
-            <div className="border-l-4 border-blue-500 pl-4">
-              <h3 className="font-semibold text-blue-700 mb-3">貸方（右側）</h3>
-              <div className="mb-3">
-                <label className="block text-sm font-semibold mb-1">勘定科目</label>
-                <select
-                  value={draftData.creditAccount}
-                  onChange={(e) => handleCreditAccountChange(e.target.value)}
-                  className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">選択してください</option>
-                  {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">金額</label>
-                <input
-                  type="number"
-                  value={draftData.creditAmount}
-                  onChange={(e) => handleCreditAmountChange(e.target.value)}
-                  className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="10000"
-                />
-              </div>
+            {/* 貸借バランス表示 */}
+            <div className={`text-center py-2 px-4 rounded-lg mb-4 ${
+              debitTotal === 0 && creditTotal === 0 
+                ? 'bg-gray-100 text-gray-500' 
+                : isBalanced 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {debitTotal === 0 && creditTotal === 0 
+                ? '金額を入力してください' 
+                : isBalanced 
+                  ? '✓ 貸借一致' 
+                  : `⚠ 差額: ${Math.abs(debitTotal - creditTotal).toLocaleString()} 円`
+              }
             </div>
-          </div>
+          </>
         ) : (
           <div className="mb-6">
             <label className="block text-sm font-semibold mb-2">回答</label>
             <textarea
-              value={draftData.freeAnswer}
+              value={normalizedDraft.freeAnswer}
               onChange={(e) => handleFreeAnswerChange(e.target.value)}
               className="w-full border rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="借方と貸方を自由に記入してください"
@@ -210,7 +326,7 @@ export function ProblemInput({ onSave, draftData, onDraftChange }) {
           onClick={validateAndSave}
           className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2"
         >
-          <Plus size={20} /> 回答を保存
+          <Save size={20} /> 問題を保存
         </button>
       </div>
 
