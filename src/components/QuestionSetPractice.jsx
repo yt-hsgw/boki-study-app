@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, Eye, EyeOff, Check, X, RotateCcw, Trophy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Check, X, RotateCcw, Trophy, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
 export function QuestionSetPractice({ questionSet, onBack }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [results, setResults] = useState({}); // { questionId: 'correct' | 'incorrect' }
+  const [results, setResults] = useState({});
   const [mode, setMode] = useState('practice'); // 'practice' | 'retry' | 'complete'
   const [retryQuestions, setRetryQuestions] = useState([]);
+  const [zoomedImage, setZoomedImage] = useState(null); // 拡大表示用
 
   // 現在の問題リスト（通常モード or 再挑戦モード）
   const questions = useMemo(() => {
@@ -196,11 +197,21 @@ export function QuestionSetPractice({ questionSet, onBack }) {
           {currentQuestion.questionType === 'text' ? (
             <p className="text-lg whitespace-pre-wrap">{currentQuestion.questionText}</p>
           ) : (
-            <img
-              src={currentQuestion.questionImage}
-              alt="問題"
-              className="max-w-full max-h-64 mx-auto rounded-lg"
-            />
+            <div className="relative inline-block">
+              <img
+                src={currentQuestion.questionImage}
+                alt="問題"
+                className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-80 transition"
+                onClick={() => setZoomedImage(currentQuestion.questionImage)}
+              />
+              <button
+                onClick={() => setZoomedImage(currentQuestion.questionImage)}
+                className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition shadow-md"
+                title="拡大表示"
+              >
+                <ZoomIn size={18} />
+              </button>
+            </div>
           )}
         </div>
 
@@ -222,11 +233,21 @@ export function QuestionSetPractice({ questionSet, onBack }) {
               {currentQuestion.answerType === 'text' ? (
                 <p className="text-lg whitespace-pre-wrap">{currentQuestion.answerText}</p>
               ) : (
-                <img
-                  src={currentQuestion.answerImage}
-                  alt="回答"
-                  className="max-w-full max-h-64 mx-auto rounded-lg"
-                />
+                <div className="relative inline-block">
+                  <img
+                    src={currentQuestion.answerImage}
+                    alt="回答"
+                    className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-80 transition"
+                    onClick={() => setZoomedImage(currentQuestion.answerImage)}
+                  />
+                  <button
+                    onClick={() => setZoomedImage(currentQuestion.answerImage)}
+                    className="absolute bottom-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition shadow-md"
+                    title="拡大表示"
+                  >
+                    <ZoomIn size={18} />
+                  </button>
+                </div>
               )}
 
               {/* 正解/不正解ボタン */}
@@ -316,6 +337,32 @@ export function QuestionSetPractice({ questionSet, onBack }) {
         >
           結果を見る
         </button>
+      )}
+
+      {/* 画像拡大モーダル */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div
+            className="max-w-4xl max-h-[90vh] relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedImage}
+              alt="拡大表示"
+              className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+            />
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 right-4 bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition shadow-lg"
+              title="閉じる"
+            >
+              <X size={24} />
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`
