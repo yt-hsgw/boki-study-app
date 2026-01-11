@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, Plus, Home } from 'lucide-react';
+import { BookOpen, Plus, Home, FolderOpen } from 'lucide-react';
 import { ProblemInput } from './components/ProblemInput';
 import { ProblemList } from './components/ProblemList';
 import { ReviewModalGiven } from './components/ReviewModal/ReviewModalGiven';
@@ -7,12 +7,14 @@ import { ReviewModalFree } from './components/ReviewModal/ReviewModalFree';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { GlossaryPanel } from './components/GlossaryPanel';
 import { CalculatorWidget } from './components/CalculatorWidget';
+import { QuestionSetManager } from './components/QuestionSetManager';
 import { useStorage } from './hooks/useStorage';
 import { DEFAULT_DRAFT, STORAGE_KEYS } from './data/constants';
 import './App.css';
 
 function App() {
   const [problems, setProblems] = useStorage(STORAGE_KEYS.PROBLEMS, []);
+  const [questionSets, setQuestionSets] = useStorage(STORAGE_KEYS.QUESTION_SETS, []);
   const [currentTab, setCurrentTab] = useState('input');
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [draftData, setDraftData] = useStorage(STORAGE_KEYS.DRAFT, DEFAULT_DRAFT);
@@ -44,6 +46,25 @@ function App() {
 
   const handleDraftChange = (newDraft) => {
     setDraftData(newDraft);
+  };
+
+  // 問題集の保存
+  const handleSaveQuestionSet = (questionSet) => {
+    const existingIndex = questionSets.findIndex(qs => qs.id === questionSet.id);
+    if (existingIndex >= 0) {
+      // 更新
+      const newSets = [...questionSets];
+      newSets[existingIndex] = questionSet;
+      setQuestionSets(newSets);
+    } else {
+      // 新規追加
+      setQuestionSets([...questionSets, questionSet]);
+    }
+  };
+
+  // 問題集の削除
+  const handleDeleteQuestionSet = (id) => {
+    setQuestionSets(questionSets.filter(qs => qs.id !== id));
   };
 
   return (
@@ -84,6 +105,16 @@ function App() {
             >
               <Home size={18} className="inline mr-1" /> 問題一覧 ({problems.length})
             </button>
+            <button
+              onClick={() => setCurrentTab('questionSets')}
+              className={`py-4 px-2 font-semibold border-b-2 transition ${
+                currentTab === 'questionSets'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FolderOpen size={18} className="inline mr-1" /> 問題集 ({questionSets.length})
+            </button>
           </div>
         </div>
 
@@ -97,6 +128,13 @@ function App() {
               <h2 className="text-2xl font-bold mb-4">登録済み問題</h2>
               <ProblemList problems={problems} onView={handleViewProblem} onDelete={handleDeleteRequest} />
             </div>
+          )}
+          {currentTab === 'questionSets' && (
+            <QuestionSetManager
+              questionSets={questionSets}
+              onSave={handleSaveQuestionSet}
+              onDelete={handleDeleteQuestionSet}
+            />
           )}
         </div>
       </div>
