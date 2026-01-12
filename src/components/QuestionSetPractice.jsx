@@ -1,15 +1,22 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { ArrowLeft, Eye, EyeOff, Check, X, RotateCcw, Trophy, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
+/**
+ * 問題集練習コンポーネント
+ * 関数型更新を使用して競合状態を回避
+ */
 export function QuestionSetPractice({ questionSet, onBack }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [results, setResults] = useState({});
   const [mode, setMode] = useState('practice'); // 'practice' | 'retry' | 'complete'
   const [retryQuestions, setRetryQuestions] = useState([]);
-  const [zoomedImage, setZoomedImage] = useState(null); // 拡大表示用
+  const [zoomedImage, setZoomedImage] = useState(null);
+  
+  // タイマーIDを保持（クリーンアップ用）
+  const timerRef = useRef(null);
 
-  // 現在の問題リスト（通常モード or 再挑戦モード）
+  // 現在の問題リスト（メモ化）
   const questions = useMemo(() => {
     if (mode === 'retry') {
       return retryQuestions;
@@ -17,95 +24,148 @@ export function QuestionSetPractice({ questionSet, onBack }) {
     return questionSet.questions;
   }, [mode, retryQuestions, questionSet.questions]);
 
-  const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
+  const currentQuestion = questions[currentIndex];
   const answeredCount = Object.keys(results).length;
 
-  // 正解/不正解をマーク
-  const markAnswer = (isCorrect) => {
-    setResults({
-      ...results,
-      [currentQuestion.id]: isCorrect ? 'correct' : 'incorrect'
-    });
+  /**
+   * 正解/不正解をマーク（関数型更新で競合回避）
+   */
+  const markAnswer = useCallback((isCorrect) => {
+    if (!currentQuestion) return;
+    
+    const questionId = currentQuestion.id;
+    
+    // 関数型更新で最新の状態を保証
+    setResults(prevResults => ({
+      ...prevResults,
+      [questionId]: isCorrect ? 'correct' : 'incorrect'
+    }));
+    
+    // 前のタイマーをクリア
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
     
     // 次の問題へ自動遷移
-    setTimeout(() => {
-      if (currentIndex < totalQuestions - 1) {
-        setCurrentIndex(currentIndex + 1);
-        setShowAnswer(false);
-      } else {
-        // 最後の問題の場合、結果を確認
-        checkCompletion();
-      }
+    timerRef.current = setTimeout(() => {
+      setCurrentIndex(prevIndex => {
+        if (prevIndex < totalQuestions - 1) {
+          setShowAnswer(false);
+          return prevIndex + 1;
+        }
+        // 最後の問題の場合
+        setMode('complete');
+        return prevIndex;
+      });
     }, 300);
-  };
+  }, [currentQuestion, totalQuestions]);
 
-  // 完了チェック
-  const checkCompletion = () => {
-    const incorrectQuestions = questions.filter(q => results[q.id] === 'incorrect');
-    
-    // 現在の問題の結果も含めて再計算
-    const allResults = { ...results, [currentQuestion.id]: results[currentQuestion.id] };
-    const finalIncorrect = questions.filter(q => allResults[q.id] === 'incorrect');
-    
-    if (finalIncorrect.length > 0 || (mode === 'practice' && Object.keys(allResults).length === totalQuestions)) {
-      setMode('complete');
-    }
-  };
+  /**
+   * 次の問題へ
+   */
+  const nextQuestion = useCallback(() => {
+    setCurrentIndex(prevIndex => {
+      if (prevIndex < totalQuestions - 1) {
+        setShowAnswer(false);
+        return prevIndex + 1;
+      }
+      return prevIndex;
+    });
+  }, [totalQuestions]);
 
-  // 次の問題
-  const nextQuestion = () => {
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setShowAnswer(false);
-    }
-  };
+  /**
+   * 前の問題へ
+   */
+  const prevQuestion = useCallback(() => {
+    setCurrentIndex(prevIndex => {
+      if (prevIndex > 0) {
+        setShowAnswer(false);
+        return prevIndex - 1;
+      }
+      return prevIndex;
+    });
+  }, []);
 
-  // 前の問題
-  const prevQuestion = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setShowAnswer(false);
-    }
-  };
+  /**
+   * 特定の問題へジャンプ
+   */
+  const goToQuestion = useCallback((index) => {
+    setCurrentIndex(index);
+    setShowAnswer(false);
+  }, []);
 
-  // 再挑戦モードを開始
-  const startRetry = () => {
+  /**
+   * 再挑戦モードを開始
+   */
+  const startRetry = useCallback(() => {
     const incorrectIds = Object.entries(results)
       .filter(([_, result]) => result === 'incorrect')
       .map(([id]) => parseInt(id));
     
-    const incorrectQuestions = questionSet.questions.filter(q => incorrectIds.includes(q.id));
+    const incorrectQuestions = questionSet.questions.filter(q => 
+      incorrectIds.includes(q.id)
+    );
     
-    // シャッフル
-    const shuffled = [...incorrectQuestions].sort(() => Math.random() - 0.5);
+    // Fisher-Yatesシャッフル（より公平なランダム化）
+    const shuffled = [...incorrectQuestions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     
     setRetryQuestions(shuffled);
     setResults({});
     setCurrentIndex(0);
     setShowAnswer(false);
     setMode('retry');
-  };
+  }, [results, questionSet.questions]);
 
-  // 最初からやり直し
-  const restart = () => {
+  /**
+   * 最初からやり直し
+   */
+  const restart = useCallback(() => {
     setResults({});
     setCurrentIndex(0);
     setShowAnswer(false);
     setRetryQuestions([]);
     setMode('practice');
-  };
+  }, []);
+
+  /**
+   * 画像の拡大表示
+   */
+  const openZoom = useCallback((imageSrc) => {
+    setZoomedImage(imageSrc);
+  }, []);
+
+  const closeZoom = useCallback(() => {
+    setZoomedImage(null);
+  }, []);
+
+  // 結果の計算（メモ化）
+  const resultStats = useMemo(() => {
+    const correctCount = Object.values(results).filter(r => r === 'correct').length;
+    const incorrectCount = Object.values(results).filter(r => r === 'incorrect').length;
+    const score = totalQuestions > 0 
+      ? Math.round((correctCount / totalQuestions) * 100) 
+      : 0;
+    
+    return { correctCount, incorrectCount, score };
+  }, [results, totalQuestions]);
 
   // 完了画面
   if (mode === 'complete') {
-    const correctCount = Object.values(results).filter(r => r === 'correct').length;
-    const incorrectCount = Object.values(results).filter(r => r === 'incorrect').length;
-    const score = Math.round((correctCount / totalQuestions) * 100);
+    const { correctCount, incorrectCount, score } = resultStats;
 
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <Trophy size={64} className={`mx-auto mb-4 ${score >= 80 ? 'text-yellow-500' : 'text-gray-400'}`} />
+          <Trophy 
+            size={64} 
+            className={`mx-auto mb-4 ${score >= 80 ? 'text-yellow-500' : 'text-gray-400'}`} 
+            aria-hidden="true"
+          />
           <h2 className="text-2xl font-bold mb-2">
             {mode === 'retry' ? '再挑戦完了！' : '練習完了！'}
           </h2>
@@ -153,6 +213,21 @@ export function QuestionSetPractice({ questionSet, onBack }) {
     );
   }
 
+  // 問題がない場合のフォールバック
+  if (!currentQuestion) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-8">
+        <p className="text-gray-500">問題が見つかりません</p>
+        <button
+          onClick={onBack}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          戻る
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* ヘッダー */}
@@ -160,6 +235,7 @@ export function QuestionSetPractice({ questionSet, onBack }) {
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition"
+          aria-label="戻る"
         >
           <ArrowLeft size={24} />
         </button>
@@ -183,7 +259,7 @@ export function QuestionSetPractice({ questionSet, onBack }) {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all"
+            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
             style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
           />
         </div>
@@ -201,13 +277,14 @@ export function QuestionSetPractice({ questionSet, onBack }) {
               <img
                 src={currentQuestion.questionImage}
                 alt="問題"
-                className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-80 transition"
-                onClick={() => setZoomedImage(currentQuestion.questionImage)}
+                className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-90 transition"
+                onClick={() => openZoom(currentQuestion.questionImage)}
               />
               <button
-                onClick={() => setZoomedImage(currentQuestion.questionImage)}
+                onClick={() => openZoom(currentQuestion.questionImage)}
                 className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition shadow-md"
                 title="拡大表示"
+                aria-label="画像を拡大"
               >
                 <ZoomIn size={18} />
               </button>
@@ -220,7 +297,7 @@ export function QuestionSetPractice({ questionSet, onBack }) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-green-600">回答</h3>
             <button
-              onClick={() => setShowAnswer(!showAnswer)}
+              onClick={() => setShowAnswer(prev => !prev)}
               className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
             >
               {showAnswer ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -237,13 +314,14 @@ export function QuestionSetPractice({ questionSet, onBack }) {
                   <img
                     src={currentQuestion.answerImage}
                     alt="回答"
-                    className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-80 transition"
-                    onClick={() => setZoomedImage(currentQuestion.answerImage)}
+                    className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-90 transition"
+                    onClick={() => openZoom(currentQuestion.answerImage)}
                   />
                   <button
-                    onClick={() => setZoomedImage(currentQuestion.answerImage)}
+                    onClick={() => openZoom(currentQuestion.answerImage)}
                     className="absolute bottom-2 right-2 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition shadow-md"
                     title="拡大表示"
+                    aria-label="画像を拡大"
                   >
                     <ZoomIn size={18} />
                   </button>
@@ -297,23 +375,22 @@ export function QuestionSetPractice({ questionSet, onBack }) {
           <ChevronLeft size={20} /> 前へ
         </button>
 
-        <div className="flex gap-2">
-          {questions.map((_, idx) => (
+        <div className="flex gap-2 flex-wrap justify-center">
+          {questions.map((q, idx) => (
             <button
-              key={idx}
-              onClick={() => {
-                setCurrentIndex(idx);
-                setShowAnswer(false);
-              }}
+              key={q.id}
+              onClick={() => goToQuestion(idx)}
               className={`w-8 h-8 rounded-full text-sm font-semibold transition ${
                 idx === currentIndex
                   ? 'bg-blue-600 text-white'
-                  : results[questions[idx].id] === 'correct'
+                  : results[q.id] === 'correct'
                     ? 'bg-green-500 text-white'
-                    : results[questions[idx].id] === 'incorrect'
+                    : results[q.id] === 'incorrect'
                       ? 'bg-red-500 text-white'
                       : 'bg-gray-200 hover:bg-gray-300'
               }`}
+              aria-label={`問題${idx + 1}へ`}
+              aria-current={idx === currentIndex ? 'true' : undefined}
             >
               {idx + 1}
             </button>
@@ -343,7 +420,9 @@ export function QuestionSetPractice({ questionSet, onBack }) {
       {zoomedImage && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
-          onClick={() => setZoomedImage(null)}
+          onClick={closeZoom}
+          role="dialog"
+          aria-label="画像拡大表示"
         >
           <div
             className="max-w-4xl max-h-[90vh] relative"
@@ -355,9 +434,10 @@ export function QuestionSetPractice({ questionSet, onBack }) {
               className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
             />
             <button
-              onClick={() => setZoomedImage(null)}
+              onClick={closeZoom}
               className="absolute top-4 right-4 bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition shadow-lg"
               title="閉じる"
+              aria-label="閉じる"
             >
               <X size={24} />
             </button>
@@ -377,3 +457,5 @@ export function QuestionSetPractice({ questionSet, onBack }) {
     </div>
   );
 }
+
+export default QuestionSetPractice;

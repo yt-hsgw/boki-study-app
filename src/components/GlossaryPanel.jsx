@@ -1,6 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Search, Book, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, Book, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 
+/**
+ * CSVの1行をパースする関数
+ */
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
+ * 用語集パネルコンポーネント
+ * 堅牢なエラーハンドリングを含む
+ */
 export function GlossaryPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -10,66 +37,90 @@ export function GlossaryPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadGlossary();
-  }, []);
-
-  const loadGlossary = async () => {
+  /**
+   * 用語集データの読み込み
+   */
+  const loadGlossary = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
       const response = await fetch('/glossary.csv');
+      
+      // レスポンスのチェック
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const text = await response.text();
+      
+      // 空チェック
+      if (!text || text.trim() === '') {
+        throw new Error('用語集データが空です');
+      }
+      
       const lines = text.trim().split('\n');
       
-      const data = lines.slice(1).map(line => {
-        const values = parseCSVLine(line);
-        return {
-          term: values[0] || '',
-          reading: values[1] || '',
-          category: values[2] || '',
-          definition: values[3] || ''
-        };
-      });
+      // 最低限のデータチェック（ヘッダー + 1行以上）
+      if (lines.length < 2) {
+        throw new Error('用語集データの形式が無効です');
+      }
+      
+      const data = lines.slice(1).map((line, index) => {
+        try {
+          const values = parseCSVLine(line);
+          return {
+            term: values[0] || '',
+            reading: values[1] || '',
+            category: values[2] || '',
+            definition: values[3] || ''
+          };
+        } catch (e) {
+          console.warn(`Failed to parse line ${index + 2}:`, e);
+          return null;
+        }
+      }).filter(item => item !== null && item.term);
+      
+      if (data.length === 0) {
+        throw new Error('有効な用語データがありません');
+      }
       
       setGlossaryData(data);
-      setLoading(false);
     } catch (err) {
-      setError('用語集の読み込みに失敗しました');
+      console.error('Glossary load error:', err);
+      setError(err.message || '用語集の読み込みに失敗しました');
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const parseCSVLine = (line) => {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  };
+  useEffect(() => {
+    loadGlossary();
+  }, [loadGlossary]);
 
-  const categories = ['all', ...new Set(glossaryData.map(item => item.category))];
+  // カテゴリ一覧（メモ化）
+  const categories = useMemo(() => {
+    const cats = new Set(glossaryData.map(item => item.category).filter(Boolean));
+    return ['all', ...Array.from(cats).sort()];
+  }, [glossaryData]);
 
-  const filteredData = glossaryData.filter(item => {
-    const matchesSearch = 
-      item.term.includes(searchTerm) || 
-      item.reading.includes(searchTerm) ||
-      item.definition.includes(searchTerm);
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // フィルタリング（メモ化）
+  const filteredData = useMemo(() => {
+    return glossaryData.filter(item => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        item.term.toLowerCase().includes(searchLower) || 
+        item.reading.toLowerCase().includes(searchLower) ||
+        item.definition.toLowerCase().includes(searchLower);
+      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [glossaryData, searchTerm, selectedCategory]);
 
-  const sortedData = [...filteredData].sort((a, b) => a.reading.localeCompare(b.reading, 'ja'));
+  // ソート（メモ化）
+  const sortedData = useMemo(() => {
+    return [...filteredData].sort((a, b) => a.reading.localeCompare(b.reading, 'ja'));
+  }, [filteredData]);
 
   const categoryLabels = {
     'all': 'すべて',
@@ -92,6 +143,10 @@ export function GlossaryPanel() {
     'その他': 'その他'
   };
 
+  const handleRetry = useCallback(() => {
+    loadGlossary();
+  }, [loadGlossary]);
+
   return (
     <>
       {/* フローティングボタン */}
@@ -100,6 +155,7 @@ export function GlossaryPanel() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40"
           title="用語集を開く"
+          aria-label="用語集を開く"
         >
           <Book size={24} />
         </button>
@@ -115,6 +171,8 @@ export function GlossaryPanel() {
             width: '380px',
             height: isMinimized ? 'auto' : '500px'
           }}
+          role="dialog"
+          aria-label="用語集"
         >
           {/* ヘッダー */}
           <div className="p-3 bg-indigo-600 text-white flex items-center justify-between">
@@ -128,6 +186,7 @@ export function GlossaryPanel() {
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-1.5 hover:bg-indigo-700 rounded transition"
                 title={isMinimized ? '展開' : '最小化'}
+                aria-label={isMinimized ? '展開' : '最小化'}
               >
                 {isMinimized ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </button>
@@ -135,6 +194,7 @@ export function GlossaryPanel() {
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 hover:bg-indigo-700 rounded transition"
                 title="閉じる"
+                aria-label="閉じる"
               >
                 <X size={18} />
               </button>
@@ -153,12 +213,14 @@ export function GlossaryPanel() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="用語を検索..."
                     className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="用語を検索"
                   />
                 </div>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="w-full text-sm border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  aria-label="カテゴリを選択"
                 >
                   {categories.map(cat => (
                     <option key={cat} value={cat}>
@@ -171,15 +233,29 @@ export function GlossaryPanel() {
               {/* 用語リスト */}
               <div className="flex-1 overflow-y-auto p-3">
                 {loading ? (
-                  <div className="text-center text-gray-500 py-4">読み込み中...</div>
+                  <div className="text-center text-gray-500 py-4">
+                    <div className="animate-spin inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-2"></div>
+                    <p>読み込み中...</p>
+                  </div>
                 ) : error ? (
-                  <div className="text-center text-red-500 py-4 text-sm">{error}</div>
+                  <div className="text-center py-4">
+                    <p className="text-red-500 text-sm mb-3">{error}</p>
+                    <button
+                      onClick={handleRetry}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"
+                    >
+                      <RefreshCw size={16} />
+                      再読み込み
+                    </button>
+                  </div>
                 ) : sortedData.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4 text-sm">該当する用語がありません</div>
+                  <div className="text-center text-gray-500 py-4 text-sm">
+                    該当する用語がありません
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {sortedData.map((item, idx) => (
-                      <details key={idx} className="bg-gray-50 rounded-lg overflow-hidden group">
+                      <details key={`${item.term}-${idx}`} className="bg-gray-50 rounded-lg overflow-hidden group">
                         <summary className="p-2 cursor-pointer hover:bg-gray-100 transition list-none">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -206,3 +282,5 @@ export function GlossaryPanel() {
     </>
   );
 }
+
+export default GlossaryPanel;

@@ -51,6 +51,8 @@ public/
 └── glossary.csv                  # 用語集データ（CSV形式）
 src/
 ├── components/
+│   ├── common/                   # 共通UIコンポーネント
+│   │   └── Combobox.jsx          # 汎用コンボボックス
 │   ├── AccountCombobox.jsx       # 勘定科目コンボボックス
 │   ├── CalculatorWidget.jsx      # 電卓ウィジェット
 │   ├── ConfirmDialog.jsx         # 確認ダイアログ
@@ -64,16 +66,56 @@ src/
 │   └── ReviewModal/
 │       ├── ReviewModalFree.jsx   # 自由記入の答え合わせ
 │       └── ReviewModalGiven.jsx  # 選択肢の答え合わせ
+├── config/
+│   └── accounts.config.js        # 勘定科目設定
+├── contexts/
+│   └── AppContext.jsx            # アプリケーションContext
 ├── data/
 │   ├── accounts.js               # 勘定科目データ（80科目以上）
 │   └── constants.js              # 定数定義
 ├── hooks/
-│   └── useStorage.js             # localStorage フック
+│   ├── useStorage.js             # localStorage フック（改善版）
+│   ├── useProblems.js            # 問題管理フック
+│   └── useQuestionSets.js        # 問題集管理フック
+├── services/
+│   └── migration.js              # データマイグレーションサービス
+├── types/
+│   └── index.js                  # 型定義（JSDoc形式）
+├── utils/
+│   ├── storage.js                # ストレージユーティリティ
+│   └── validators.js             # バリデーションユーティリティ
 ├── App.jsx                       # メインコンポーネント
 ├── App.css                       # 基本スタイル
 ├── index.css                     # Tailwind インポート
 └── main.jsx                      # エントリーポイント
 ```
+
+## アーキテクチャの特徴
+
+### セキュリティ
+- 画像アップロード時のMIMEタイプ・サイズ検証
+- localStorage読み書き時のエラーハンドリング
+- Base64画像データのサニタイズ
+
+### 堅牢性
+- 全てのAPI呼び出しに適切なエラーハンドリング
+- Nullチェックとオプショナルチェイニングの活用
+- フォールバック値の設定
+
+### データマイグレーション
+- バージョン管理されたデータ構造
+- 旧形式データの自動変換
+- 後方互換性の維持
+
+### 状態管理
+- カスタムフックによるロジック分離
+- Context APIによる状態共有（オプション）
+- 関数型更新による競合状態の回避
+
+### 拡張性
+- 汎用Comboboxコンポーネント
+- 設定ファイルによるカスタマイズ
+- テスト可能な純粋関数
 
 ## 問題集機能の使い方
 
@@ -120,6 +162,7 @@ term,reading,category,definition
 - データは `localStorage` に保存されます
 - 画像データも含めて保存されます（大きな画像は5MB以下推奨）
 - ブラウザのデータをクリアすると全データが削除されます
+- データバージョン管理により、旧形式のデータは自動的に新形式に変換されます
 
 ## ライセンス
 

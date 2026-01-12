@@ -64,7 +64,14 @@ export function QuestionSetEditor({ questionSet, onSave, onCancel }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // ファイルサイズチェック（5MB以下）
+    // MIMEタイプの検証を追加
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('許可されていないファイル形式です');
+      return;
+    }
+
+    // ファイルサイズチェック
     if (file.size > 5 * 1024 * 1024) {
       alert('画像サイズは5MB以下にしてください');
       return;
