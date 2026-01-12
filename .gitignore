@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Tauri
+src-tauri/target/
+src-tauri/.cargo/
+*.key
+*.key.pub
+*.p12
+*.pem
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,6 +30,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Output build files
+*.dmg
+*.app
+*.exe
+*.msi
+*.AppImage
+*.deb
 
 # Environment variables
 .env
