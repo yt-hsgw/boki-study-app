@@ -12,9 +12,13 @@
   "app": {
     "windows": [{
       "label": "main",
-      "title": "bookkeeping-study-app",
-      "width": 800,
-      "height": 600
+      "title": "簿記3級 学習支援アプリ",
+      "width": 1200,
+      "height": 1000,
+      "minWidth": 900,
+      "minHeight": 800,
+      "center": true,
+      "resizable": true
     }],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost"
@@ -28,7 +32,7 @@
       "minimumSystemVersion": "10.13",
       "hardenedRuntime": true,
       "dmg": {
-        "windowSize": { "width": 660, "height": 400 },
+        "windowSize": { "width": 800, "height": 750 },
         "appPosition": { "x": 180, "y": 170 },
         "applicationFolderPosition": { "x": 480, "y": 170 }
       }
