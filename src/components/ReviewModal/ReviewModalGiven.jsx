@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { X, Check, AlertTriangle } from 'lucide-react';
 import { getAllAccounts } from '../../data/accounts';
 
 export function ReviewModalGiven({ problem, onClose }) {
-  const accounts = getAllAccounts();
+  // 勘定科目リストをメモ化（毎レンダリングでの再計算を防止）
+  const accounts = useMemo(() => getAllAccounts(), []);
 
   // 旧形式との互換性: debit/credit が単数の場合は配列に変換
   const problemDebits = useMemo(() => {
@@ -56,9 +57,11 @@ export function ReviewModalGiven({ problem, onClose }) {
   const allCreditsCorrect = problemCredits.every((_, i) => checkCredit(i));
   const allCorrect = allDebitsCorrect && allCreditsCorrect;
 
-  // 合計計算
-  const debitTotal = problemDebits.reduce((sum, d) => sum + d.amount, 0);
-  const creditTotal = problemCredits.reduce((sum, c) => sum + c.amount, 0);
+  // 合計計算（メモ化）
+  const debitTotal = useMemo(() => 
+    problemDebits.reduce((sum, d) => sum + d.amount, 0), [problemDebits]);
+  const creditTotal = useMemo(() => 
+    problemCredits.reduce((sum, c) => sum + c.amount, 0), [problemCredits]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
