@@ -3,6 +3,8 @@
  * エラーハンドリングとサニタイズを含む
  */
 
+import { IMAGE_CONFIG, STORAGE_CONFIG } from '../data/constants';
+
 /**
  * localStorageが利用可能かチェック
  * @returns {boolean}
@@ -135,8 +137,8 @@ export function getStorageUsage() {
     console.warn('Failed to calculate storage usage:', e);
   }
   
-  // 一般的なlocalStorageの上限は5MB
-  const quota = 5 * 1024 * 1024;
+  // 一般的なlocalStorageの上限
+  const quota = STORAGE_CONFIG.QUOTA_LIMIT;
   
   return {
     used,
@@ -167,8 +169,7 @@ export function sanitizeBase64Image(base64) {
   }
   
   // サイズチェック（5MB相当のBase64）
-  const maxBase64Length = 5 * 1024 * 1024 * 1.37; // Base64は約37%増加
-  if (base64.length > maxBase64Length) {
+  if (base64.length > IMAGE_CONFIG.MAX_BASE64_LENGTH) {
     console.warn('Image data too large');
     return null;
   }

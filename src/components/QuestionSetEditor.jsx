@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ArrowLeft, Save, Plus, Trash2, Image, Type, ChevronUp, ChevronDown } from 'lucide-react';
-import { DEFAULT_QUESTION, DEFAULT_QUESTION_SET } from '../data/constants';
+import { DEFAULT_QUESTION, DEFAULT_QUESTION_SET, IMAGE_CONFIG } from '../data/constants';
 
 export function QuestionSetEditor({ questionSet, onSave, onCancel }) {
   const [formData, setFormData] = useState(() => {
@@ -64,15 +64,14 @@ export function QuestionSetEditor({ questionSet, onSave, onCancel }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // MIMEタイプの検証を追加
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    // MIMEタイプの検証
+    if (!IMAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
       alert('許可されていないファイル形式です');
       return;
     }
 
     // ファイルサイズチェック
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > IMAGE_CONFIG.MAX_SIZE) {
       alert('画像サイズは5MB以下にしてください');
       return;
     }

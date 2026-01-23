@@ -3,6 +3,8 @@
  * テスト可能な純粋関数として実装
  */
 
+import { IMAGE_CONFIG } from '../data/constants';
+
 /**
  * 問題データのバリデーション
  * @param {Object} problem - 問題データ
@@ -98,8 +100,8 @@ export function validateQuestionSet(questionSet) {
  */
 export function validateFileUpload(file, options = {}) {
   const {
-    maxSize = 5 * 1024 * 1024, // 5MB
-    allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    maxSize = IMAGE_CONFIG.MAX_SIZE,
+    allowedTypes = IMAGE_CONFIG.ALLOWED_TYPES,
   } = options;
   
   const errors = {};

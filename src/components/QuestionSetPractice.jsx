@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { ArrowLeft, Eye, EyeOff, Check, X, RotateCcw, Trophy, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
 /**
@@ -15,6 +15,16 @@ export function QuestionSetPractice({ questionSet, onBack }) {
   
   // タイマーIDを保持（クリーンアップ用）
   const timerRef = useRef(null);
+
+  // コンポーネントアンマウント時のクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   // 現在の問題リスト（メモ化）
   const questions = useMemo(() => {
@@ -444,16 +454,6 @@ export function QuestionSetPractice({ questionSet, onBack }) {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
