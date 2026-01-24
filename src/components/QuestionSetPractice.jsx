@@ -434,23 +434,26 @@ export function QuestionSetPractice({ questionSet, onBack }) {
           role="dialog"
           aria-label="画像拡大表示"
         >
+          {/* 閉じるボタン - モーダル右上に固定配置 */}
+          <button
+            onClick={closeZoom}
+            className="absolute top-4 right-4 bg-white text-gray-800 p-2 rounded-full hover:bg-gray-100 transition shadow-lg z-10"
+            title="閉じる"
+            aria-label="閉じる"
+          >
+            <X size={24} />
+          </button>
+          
+          {/* 画像コンテナ */}
           <div
-            className="max-w-4xl max-h-[90vh] relative"
+            className="max-w-4xl max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={zoomedImage}
               alt="拡大表示"
-              className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
             />
-            <button
-              onClick={closeZoom}
-              className="absolute top-4 right-4 bg-white text-gray-800 p-2 rounded-lg hover:bg-gray-100 transition shadow-lg"
-              title="閉じる"
-              aria-label="閉じる"
-            >
-              <X size={24} />
-            </button>
           </div>
         </div>
       )}
